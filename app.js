@@ -196,20 +196,20 @@ function home(){
   homeBtn.classList.add('hidden');
   const history=getHistory();
   app.innerHTML=`<section class="hero"><div class="emoji">🎒✨</div><h1>Ready to Learn?</h1><p>Pick a subject and start your Class 3 practice.</p></section>
-  <section class="subject-grid">${Object.entries(subjects).map(([s,x])=>`<button class="subject" data-action="subject" data-value="${s}" onclick="chooseSubject('${s}')"><div class="icon">${x.icon}</div><h2>${s}</h2><p>${x.desc}</p></button>`).join('')}</section>
-  <div class="home-actions"><button class="btn dashboard-btn" data-action="dashboard" onclick="dashboard()">📊 Parent Progress Dashboard</button></div>
+  <section class="subject-grid">${Object.entries(subjects).map(([s,x])=>`<button class="subject" data-action="subject" data-value="${s}"><div class="icon">${x.icon}</div><h2>${s}</h2><p>${x.desc}</p></button>`).join('')}</section>
+  <div class="home-actions"><button class="btn dashboard-btn" data-action="dashboard">📊 Parent Progress Dashboard</button></div>
   <div class="stats"><div><strong>${history.length}</strong><span> practice papers completed</span></div><div>📝 20 questions • 🎯 3 difficulty levels • ⏱️ timed papers</div></div>`;
 }
 
 function chooseSubject(s){
   stopTimer(); state.subject=s;
   homeBtn.classList.remove('hidden');
-  app.innerHTML=`<div class="panel"><h1>${subjects[s].icon} ${s} Practice</h1><p class="small">Choose a topic, then select Easy, Medium or Hard. Every paper has ${PAPER_SIZE} questions.</p><div class="topic-grid">${Object.entries(subjects[s].topics).map(([t,d])=>`<button class="topic" data-action="topic" data-value=${JSON.stringify(t)} onclick="chooseDifficulty(${JSON.stringify(t)})">${t}<small>${d}</small></button>`).join('')}</div><div class="actions"><button class="btn secondary" data-action="home" onclick="home()">← Back</button><button class="btn secondary" data-action="dashboard" onclick="dashboard()">📊 Progress</button></div></div>`;
+  app.innerHTML=`<div class="panel"><h1>${subjects[s].icon} ${s} Practice</h1><p class="small">Choose a topic, then select Easy, Medium or Hard. Every paper has ${PAPER_SIZE} questions.</p><div class="topic-grid">${Object.entries(subjects[s].topics).map(([t,d])=>`<button class="topic" data-action="topic" data-value=${JSON.stringify(t)}>${t}<small>${d}</small></button>`).join('')}</div><div class="actions"><button class="btn secondary" data-action="home">← Back</button><button class="btn secondary" data-action="dashboard">📊 Progress</button></div></div>`;
 }
 
 function chooseDifficulty(topic){
   state.topic=topic;
-  app.innerHTML=`<div class="panel"><div class="pill">${subjects[state.subject].icon} ${state.subject} • ${topic}</div><h1>Choose Your Challenge</h1><p class="small">You will get ${PAPER_SIZE} questions. The timer changes with difficulty.</p><div class="difficulty-grid">${Object.entries(DIFFICULTIES).map(([d,x])=>`<button class="difficulty ${d.toLowerCase()}" data-action="start" data-topic=${JSON.stringify(topic)} data-difficulty=${JSON.stringify(d)} onclick="start(${JSON.stringify(topic)},${JSON.stringify(d)})"><span>${x.icon}</span><strong>${d}</strong><small>${x.desc}</small><em>${x.minutes} minutes</em></button>`).join('')}</div><div class="actions"><button class="btn secondary" data-action="subject" data-value="${state.subject}" onclick="chooseSubject('${state.subject}')">← Topics</button></div></div>`;
+  app.innerHTML=`<div class="panel"><div class="pill">${subjects[state.subject].icon} ${state.subject} • ${topic}</div><h1>Choose Your Challenge</h1><p class="small">You will get ${PAPER_SIZE} questions. The timer changes with difficulty.</p><div class="difficulty-grid">${Object.entries(DIFFICULTIES).map(([d,x])=>`<button class="difficulty ${d.toLowerCase()}" data-action="start" data-topic=${JSON.stringify(topic)} data-difficulty=${JSON.stringify(d)}><span>${x.icon}</span><strong>${d}</strong><small>${x.desc}</small><em>${x.minutes} minutes</em></button>`).join('')}</div><div class="actions"><button class="btn secondary" data-action="subject" data-value="${state.subject}">← Topics</button></div></div>`;
 }
 
 function start(topic,difficulty='Medium'){
@@ -235,12 +235,16 @@ function startTimer(){
 function renderQuestion(){
   const q=state.questions[state.index];
   const pct=(state.index/state.questions.length)*100;
-  app.innerHTML=`<div class="panel"><div class="paper-head"><div><div class="pill">${subjects[state.subject].icon} ${state.subject} • ${state.topic} • ${DIFFICULTIES[state.difficulty].icon} ${state.difficulty}</div><h1>Practice Paper</h1></div><div class="paper-meta"><div class="timer" id="timer">${formatTime(state.timeLeft)}</div><strong>${state.index+1} / ${state.questions.length}</strong></div></div><div class="progress"><div style="width:${pct}%"></div></div><div class="question">${q[0]}</div><div class="options">${q[1].map((o,i)=>`<button class="option" data-action="option" data-index="${i}" onclick="selectOption(${i})" id="opt${i}">${o}</button>`).join('')}</div><div class="actions"><button class="btn secondary" data-action="subject" data-value="${state.subject}" onclick="chooseSubject('${state.subject}')">Exit Paper</button><button class="btn primary" data-action="next" onclick="nextQuestion()">${state.index===state.questions.length-1?'Finish 🎉':'Next →'}</button></div></div>`;
+  app.innerHTML=`<div class="panel"><div class="paper-head"><div><div class="pill">${subjects[state.subject].icon} ${state.subject} • ${state.topic} • ${DIFFICULTIES[state.difficulty].icon} ${state.difficulty}</div><h1>Practice Paper</h1></div><div class="paper-meta"><div class="timer" id="timer">${formatTime(state.timeLeft)}</div><strong>${state.index+1} / ${state.questions.length}</strong></div></div><div class="progress"><div style="width:${pct}%"></div></div><div class="question">${q[0]}</div><div class="options">${q[1].map((o,i)=>`<button class="option" data-action="option" data-index="${i}" id="opt${i}">${o}</button>`).join('')}</div><div class="actions"><button class="btn secondary" data-action="subject" data-value="${state.subject}">Exit Paper</button><button class="btn primary" data-action="next">${state.index===state.questions.length-1?'Finish 🎉':'Next →'}</button></div></div>`;
   if(state.selected!==null) selectOption(state.selected);
 }
 
 function selectOption(i){state.selected=i;document.querySelectorAll('.option').forEach((x,n)=>x.classList.toggle('selected',n===i));}
 function nextQuestion(){
+  if(state.selected===null){
+    const selectedEl=document.querySelector('.option.selected');
+    if(selectedEl) state.selected=Number(selectedEl.dataset.index);
+  }
   if(state.selected===null){alert('Please choose an answer 😊');return;}
   state.answers.push(state.selected);
   if(state.index<state.questions.length-1){state.index++;state.selected=null;renderQuestion();}
@@ -257,7 +261,7 @@ function result(timeUp){
   const score=state.questions.reduce((n,q,i)=>n+(state.answers[i]===q[2]?1:0),0);
   saveAttempt(score,state.questions.length,{subject:state.subject,topic:state.topic,difficulty:state.difficulty,timeAllowed:DIFFICULTIES[state.difficulty].minutes*60,timeUsed:DIFFICULTIES[state.difficulty].minutes*60-state.timeLeft});
   const stars=score===PAPER_SIZE?'⭐⭐⭐⭐⭐':score>=16?'⭐⭐⭐⭐':score>=12?'⭐⭐⭐':score>=8?'⭐⭐':'⭐';
-  app.innerHTML=`<div class="panel result"><div style="font-size:55px">${timeUp?'⏰':'🎉'}</div><h1>${timeUp?'Time is up!':'Great job!'}</h1><div class="score">${score}/${state.questions.length}</div><div class="stars">${stars}</div><div class="result-meta"><span>${subjects[state.subject].icon} ${state.subject}</span><span>${state.topic}</span><span>${DIFFICULTIES[state.difficulty].icon} ${state.difficulty}</span></div><p>${timeUp?'Your paper time has ended. Review your answers below.':score===PAPER_SIZE?'Perfect! Amazing work!':score>=16?'Excellent! Keep it up!':score>=12?'Good effort! Practice makes you stronger!':'Nice try! Let’s learn and try again!'}</p><div class="actions"><button class="btn secondary" data-action="subject" data-value="${state.subject}" onclick="chooseSubject('${state.subject}')">Try Another Topic</button><button class="btn secondary" data-action="dashboard" onclick="dashboard()">📊 View Progress</button><button class="btn primary" onclick="start(${JSON.stringify(state.topic)},${JSON.stringify(state.difficulty)})">Try Again 🔄</button></div><div class="review"><h2>Answer Review</h2>${state.questions.map((q,i)=>{let ok=state.answers[i]===q[2];let yours=state.answers[i]===null?'Not answered':q[1][state.answers[i]];return `<div class="review-item ${ok?'correct':'wrong'}"><strong>${i+1}. ${q[0]}</strong><div class="small">Your answer: ${esc(yours)} ${ok?'✓':'• Correct: '+esc(q[1][q[2]])}</div></div>`}).join('')}</div></div>`;
+  app.innerHTML=`<div class="panel result"><div style="font-size:55px">${timeUp?'⏰':'🎉'}</div><h1>${timeUp?'Time is up!':'Great job!'}</h1><div class="score">${score}/${state.questions.length}</div><div class="stars">${stars}</div><div class="result-meta"><span>${subjects[state.subject].icon} ${state.subject}</span><span>${state.topic}</span><span>${DIFFICULTIES[state.difficulty].icon} ${state.difficulty}</span></div><p>${timeUp?'Your paper time has ended. Review your answers below.':score===PAPER_SIZE?'Perfect! Amazing work!':score>=16?'Excellent! Keep it up!':score>=12?'Good effort! Practice makes you stronger!':'Nice try! Let’s learn and try again!'}</p><div class="actions"><button class="btn secondary" data-action="subject" data-value="${state.subject}">Try Another Topic</button><button class="btn secondary" data-action="dashboard">📊 View Progress</button><button class="btn primary" data-action="retry" data-topic="${state.topic}" data-difficulty="${state.difficulty}">Try Again 🔄</button></div><div class="review"><h2>Answer Review</h2>${state.questions.map((q,i)=>{let ok=state.answers[i]===q[2];let yours=state.answers[i]===null?'Not answered':q[1][state.answers[i]];return `<div class="review-item ${ok?'correct':'wrong'}"><strong>${i+1}. ${q[0]}</strong><div class="small">Your answer: ${esc(yours)} ${ok?'✓':'• Correct: '+esc(q[1][q[2]])}</div></div>`}).join('')}</div></div>`;
 }
 
 function dashboard(){
@@ -267,42 +271,30 @@ function dashboard(){
   const subjectsSummary=Object.keys(subjects).map(s=>{const a=h.filter(x=>x.subject===s);const av=a.length?Math.round(a.reduce((n,x)=>n+x.percentage,0)/a.length):0;return `<div class="dash-subject"><span>${subjects[s].icon} ${s}</span><strong>${a.length?av+'%':'—'}</strong><div class="bar"><i style="width:${av}%"></i></div><small>${a.length} paper${a.length===1?'':'s'}</small></div>`}).join('');
   const recent=h.slice(-8).reverse();
   const recentHtml=recent.length?recent.map(x=>`<div class="history-row"><div><strong>${subjects[x.subject]?.icon||''} ${esc(x.subject)}</strong><span>${esc(x.topic)} • ${x.difficulty}</span></div><div class="history-score">${x.score}/${x.total}<small>${new Date(x.date).toLocaleDateString()}</small></div></div>`).join(''):`<div class="empty">No practice papers yet. Start a paper and your progress will appear here. 🌟</div>`;
-  app.innerHTML=`<div class="panel dashboard"><div class="dashboard-head"><div><div class="pill">👨‍👩‍👧 Parent View</div><h1>📊 Progress Dashboard</h1><p class="small">See how your daughter is improving across practice papers.</p></div><button class="btn secondary" data-action="home" onclick="home()">← Practice Home</button></div><div class="metric-grid"><div><span>Total Papers</span><strong>${total}</strong></div><div><span>Average Score</span><strong>${avg}%</strong></div><div><span>Best Score</span><strong>${best}%</strong></div></div><h2>Subject Progress</h2><div class="dash-subjects">${subjectsSummary}</div><h2>Recent Practice</h2><div class="history">${recentHtml}</div><div class="dashboard-actions"><button class="btn secondary" data-action="home" onclick="home()">Start Practice</button>${total?'<button class="btn danger-btn" data-action="reset" onclick="resetHistory()">Clear History</button>':''}</div></div>`;
+  app.innerHTML=`<div class="panel dashboard"><div class="dashboard-head"><div><div class="pill">👨‍👩‍👧 Parent View</div><h1>📊 Progress Dashboard</h1><p class="small">See how your daughter is improving across practice papers.</p></div><button class="btn secondary" data-action="home">← Practice Home</button></div><div class="metric-grid"><div><span>Total Papers</span><strong>${total}</strong></div><div><span>Average Score</span><strong>${avg}%</strong></div><div><span>Best Score</span><strong>${best}%</strong></div></div><h2>Subject Progress</h2><div class="dash-subjects">${subjectsSummary}</div><h2>Recent Practice</h2><div class="history">${recentHtml}</div><div class="dashboard-actions"><button class="btn secondary" data-action="home">Start Practice</button>${total?'<button class="btn danger-btn" data-action="reset">Clear History</button>':''}</div></div>`;
 }
 
-homeBtn.onclick=home;
-
-// Robust delegated click handling for GitHub Pages / browsers that restrict inline handlers.
-document.addEventListener('click', (event) => {
-  const el = event.target.closest('[data-action]');
-  if (!el) return;
-  const action = el.dataset.action;
-  try {
-    if (action === 'subject') chooseSubject(el.dataset.value);
-    else if (action === 'topic') chooseDifficulty(el.dataset.value);
-    else if (action === 'dashboard') dashboard();
-    else if (action === 'home') home();
-    else if (action === 'start') start(el.dataset.topic, el.dataset.difficulty);
-    else if (action === 'option') selectOption(Number(el.dataset.index));
-    else if (action === 'next') nextQuestion();
-    else if (action === 'finish') finish(true);
-    else if (action === 'reset') resetHistory();
-  } catch (err) {
-    console.error('Practice Zone action failed:', err);
+// One click handler for the entire app. It survives innerHTML replacements and is bound only once.
+app.addEventListener('click',(event)=>{
+  const el=event.target.closest('[data-action]');
+  if(!el || !app.contains(el)) return;
+  event.preventDefault();
+  const action=el.dataset.action;
+  try{
+    if(action==='subject') chooseSubject(el.dataset.value);
+    else if(action==='topic') chooseDifficulty(el.dataset.value);
+    else if(action==='dashboard') dashboard();
+    else if(action==='home') home();
+    else if(action==='start') start(el.dataset.topic,el.dataset.difficulty);
+    else if(action==='option') selectOption(Number(el.dataset.index));
+    else if(action==='next') nextQuestion();
+    else if(action==='reset') resetHistory();
+    else if(action==='retry') start(el.dataset.topic,el.dataset.difficulty);
+  }catch(err){
+    console.error('Practice Zone action failed:',err);
     alert('Something went wrong. Please try again.');
   }
 });
 
+homeBtn.addEventListener('click',home);
 home();
-
-// Compatibility layer: explicitly expose app actions for browsers/GitHub Pages.
-// This also makes the inline buttons reliable when the page is served from GitHub Pages.
-window.chooseSubject = chooseSubject;
-window.chooseDifficulty = chooseDifficulty;
-window.start = start;
-window.selectOption = selectOption;
-window.nextQuestion = nextQuestion;
-window.finish = finish;
-window.dashboard = dashboard;
-window.resetHistory = resetHistory;
-window.home = home;
