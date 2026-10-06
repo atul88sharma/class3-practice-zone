@@ -20,7 +20,7 @@ import {
 } from 'https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js';
 
 const firebaseConfig = {
-  apiKey: 'AIzaSyA4w0VFVmSlzNFbxdbHOH8fY02tyzt7mds',
+  apiKey: 'AIzaSyA4w0VFVmSlzNFbxdbHO8HfYO2tyzt7mds',
   authDomain: 'kanakpracticezone.firebaseapp.com',
   projectId: 'kanakpracticezone',
   storageBucket: 'kanakpracticezone.firebasestorage.app',
