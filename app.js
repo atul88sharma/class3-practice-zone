@@ -20,12 +20,12 @@ import {
 } from 'https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js';
 
 const firebaseConfig = {
-  apiKey: 'AIzaSyA4w0VFVmSlzNFbxdbHO8HfYO2tyzt7mds',
-  authDomain: 'kanakpracticezone.firebaseapp.com',
-  projectId: 'kanakpracticezone',
-  storageBucket: 'kanakpracticezone.firebasestorage.app',
-  messagingSenderId: '843655813046',
-  appId: '1:843655813046:web:3a3b8d10b781740fbf9317'
+  apiKey: "AIzaSyA4w0VFVmSlzNFbxdbHOH8FYO2tyzt7mds",
+  authDomain: "kanakpracticezone.firebaseapp.com",
+  projectId: "kanakpracticezone",
+  storageBucket: "kanakpracticezone.firebasestorage.app",
+  messagingSenderId: "843655813046",
+  appId: "1:843655813046:web:3a3b8d10b781740fbf9317"
 };
 
 const firebaseApp = initializeApp(firebaseConfig);
