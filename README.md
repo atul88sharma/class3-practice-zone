@@ -1,29 +1,33 @@
-# My Class 3 Practice Zone — Version 3
+# Kanak Sharma Class 3 Practice Zone — V5 Firebase Cloud Sync
 
-A free, self-contained Class 3 practice web app for English, Maths, Hindi and EVS.
+This version keeps the V4 adaptive practice engine and 1,440-question bank, and adds Google Sign-In + Firebase Cloud Firestore sync.
 
-## Version 3 features
-- 20-question practice papers
-- Easy / Medium / Hard challenge levels
-- Difficulty-based timers: Easy 12 min, Medium 10 min, Hard 8 min
-- Large local question pool for each topic
-- Random question selection
-- Instant scoring and answer review
+## Features
+- Maths, English, Hindi and EVS
+- 1,440 original Class 3 practice questions
+- Easy / Medium / Hard levels
+- 20-question timed papers
+- Smart Practice and adaptive recommendations
 - Parent Progress Dashboard
-- Total papers, average score and best score
-- Subject-wise progress
-- Recent practice history
-- Progress stored locally in the browser using localStorage
-- No login, database, API or paid service required
+- Google Sign-In
+- Cloud-synced history across devices
+- Local browser copy retained as a fallback
 
-## Run locally
-Keep `index.html`, `style.css` and `app.js` in the same folder and open `index.html` in a browser.
+## Firebase setup
+1. Firebase project: `kanakpracticezone`
+2. Authentication: Google provider enabled
+3. Firestore: `(default)` database
+4. Firestore rules should allow each signed-in user to access only `/users/{their-uid}` and its subcollections.
+5. Add the GitHub Pages hostname to Firebase Authentication → Settings → Authorized domains.
 
-## Publish free with GitHub Pages
-Upload `index.html`, `style.css`, `app.js` and `README.md` to the `main` branch of a GitHub repository. Then go to Settings → Pages → Deploy from a branch → `main` → `/ (root)` → Save.
+## GitHub Pages deployment
+Keep these four files together at the repository root:
+- `index.html`
+- `style.css`
+- `app.js`
+- `README.md`
 
-Your site will be available at:
-`https://YOUR-USERNAME.github.io/YOUR-REPOSITORY/`
+After replacing the files, commit to `main` and hard-refresh the site (`Cmd + Shift + R` on Mac).
 
-## Progress note
-Practice history is stored in the browser on the device where the app is used. If browser site data is cleared, the local history will be cleared too. A future version can use a free cloud database if you want the parent dashboard to work across multiple devices.
+## Important
+The Firebase web configuration in `app.js` is a public web-app configuration, not a service-account private key. Never put Firebase service-account credentials or private keys in this repository.

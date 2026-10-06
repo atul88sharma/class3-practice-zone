@@ -1,6 +1,42 @@
 /* Kanak Sharma Class 3 Practice Zone — V4 Adaptive + V3.1 Question Bank */
 'use strict';
 
+// Firebase Cloud Sync (Google Sign-In + Firestore)
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js';
+import {
+  getAuth,
+  GoogleAuthProvider,
+  signInWithPopup,
+  signInWithRedirect,
+  signOut,
+  onAuthStateChanged
+} from 'https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js';
+import {
+  getFirestore,
+  doc,
+  getDoc,
+  setDoc,
+  serverTimestamp
+} from 'https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js';
+
+const firebaseConfig = {
+  apiKey: 'AIzaSyA4w0VFVmSlzNFbxdbHOH8fY02tyzt7mds',
+  authDomain: 'kanakpracticezone.firebaseapp.com',
+  projectId: 'kanakpracticezone',
+  storageBucket: 'kanakpracticezone.firebasestorage.app',
+  messagingSenderId: '843655813046',
+  appId: '1:843655813046:web:3a3b8d10b781740fbf9317'
+};
+
+const firebaseApp = initializeApp(firebaseConfig);
+const auth = getAuth(firebaseApp);
+const db = getFirestore(firebaseApp);
+const googleProvider = new GoogleAuthProvider();
+let currentUser = null;
+let authReady = false;
+let cloudReady = false;
+let cloudBusy = false;
+
 const STORAGE_KEY = 'kanakPracticeV4';
 const BANK_VERSION = 'v4-1440';
 const LEVELS = {
@@ -236,11 +272,92 @@ buildMaths();buildEnglish();buildHindi();buildEVS();
 const BANK_INDEX={};
 for(const q of BANK){const k=`${q.subject}:${q.topic}:${q.level}`;(BANK_INDEX[k]??=[]).push(q);}
 
+function emptyStats(){return {version:BANK_VERSION,papers:[],topicStats:{},questionStats:{}};}
 function loadStats(){
   try{const raw=JSON.parse(localStorage.getItem(STORAGE_KEY)||'null');if(raw&&raw.version===BANK_VERSION)return raw;}catch(e){}
-  return {version:BANK_VERSION,papers:[],topicStats:{},questionStats:{}};
+  return emptyStats();
 }
-function saveStats(s){localStorage.setItem(STORAGE_KEY,JSON.stringify(s));}
+function saveStats(s,{cloud=true}={}){
+  localStorage.setItem(STORAGE_KEY,JSON.stringify(s));
+  if(cloud&&currentUser) cloudSave(s);
+}
+function rebuildStatsFromPapers(papers){
+  const s={version:BANK_VERSION,papers:[...papers].slice(-100),topicStats:{},questionStats:{}};
+  for(const p of s.papers){
+    for(const a of (p.answers||[])){
+      const k=topicKey(a.subject,a.topic);
+      s.topicStats[k]??={correct:0,questions:0};
+      s.topicStats[k].questions++;
+      if(a.correct)s.topicStats[k].correct++;
+      s.questionStats[a.id]??={correct:0,attempts:0};
+      s.questionStats[a.id].attempts++;
+      if(a.correct)s.questionStats[a.id].correct++;
+    }
+  }
+  return s;
+}
+function paperIdentity(p,i){
+  return p.id || `${p.date||'legacy'}-${p.subject||'mixed'}-${p.topic||'smart'}-${p.score||0}-${p.time||0}-${i}`;
+}
+function mergeStats(local,cloud){
+  const map=new Map();
+  for(const [i,p] of (cloud.papers||[]).entries()) map.set(paperIdentity(p,i),{...p,id:paperIdentity(p,i)});
+  for(const [i,p] of (local.papers||[]).entries()) map.set(paperIdentity(p,i),{...p,id:paperIdentity(p,i)});
+  const papers=[...map.values()].sort((a,b)=>new Date(a.date||0)-new Date(b.date||0)).slice(-100);
+  return rebuildStatsFromPapers(papers);
+}
+async function cloudSave(s){
+  if(!currentUser||cloudBusy)return;
+  cloudBusy=true;
+  try{
+    const clean={...s,updatedAt:serverTimestamp(),profile:{name:'Kanak Sharma',class:'3'}};
+    await setDoc(doc(db,'users',currentUser.uid),clean);
+  }catch(err){
+    console.error('Firebase save failed:',err);
+    showCloudStatus('Cloud save failed. Your progress is still saved on this device.',true);
+  }finally{cloudBusy=false;}
+}
+async function syncCloud(){
+  if(!currentUser)return;
+  showCloudStatus('Syncing your progress…');
+  try{
+    const ref=doc(db,'users',currentUser.uid);
+    const snap=await getDoc(ref);
+    const local=loadStats();
+    const cloud=snap.exists()?snap.data():emptyStats();
+    const merged=mergeStats(local,cloud);
+    localStorage.setItem(STORAGE_KEY,JSON.stringify(merged));
+    await setDoc(ref,{...merged,updatedAt:serverTimestamp(),profile:{name:'Kanak Sharma',class:'3'}},{merge:true});
+    cloudReady=true;
+    showCloudStatus('☁️ Progress synced');
+  }catch(err){
+    console.error('Firebase sync failed:',err);
+    cloudReady=false;
+    showCloudStatus('Offline mode: progress is saved on this device.',true);
+  }
+}
+function showCloudStatus(message,error=false){
+  const el=document.getElementById('cloudStatus');
+  if(el){el.textContent=message;el.classList.toggle('error',error);}
+}
+function loginView(){
+  return `<section class="page authpage"><div class="authcard card"><div class="authicon">☁️📚</div><h1>Kanak Practice Zone</h1><p>Sign in with the Google account you want to use for Kanak's progress.</p><button class="primary googlebtn" id="googleLogin">Continue with Google</button><p class="authnote">Her practice history will stay synced across your phone, tablet and computer.</p><div id="cloudStatus" class="cloudstatus">Secure cloud sync is ready.</div></div></section>`;
+}
+async function loginWithGoogle(){
+  try{
+    showCloudStatus('Opening Google sign-in…');
+    const mobile=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    if(mobile){
+      await signInWithRedirect(auth,googleProvider);
+    }else{
+      await signInWithPopup(auth,googleProvider);
+    }
+  }catch(err){
+    console.error('Google sign-in failed:',err);
+    alert(`Google sign-in could not be completed.\n\n${err.code||err.message}`);
+    showCloudStatus('Sign-in cancelled or failed.',true);
+  }
+}
 function topicKey(s,t){return `${s}:${t}`;}
 function levelAccuracy(s,level){const rows=s.papers.filter(p=>p.level===level);const total=rows.reduce((n,p)=>n+p.total,0);const correct=rows.reduce((n,p)=>n+p.score,0);return total?Math.round(correct/total*100):0;}
 function topicMetrics(s){
@@ -273,8 +390,15 @@ function currentPaperLevel(){return state.mode==='smart'?'smart':state.level;}
 let state={screen:'home',subject:null,topic:null,level:null,mode:null,paper:[],index:0,selected:null,locked:false,score:0,secondsLeft:0,started:0,timer:null,answers:[],paperLabel:''};
 function stats(){return loadStats();}
 function render(){
-  document.getElementById('app').innerHTML=views[state.screen]();
-  const hb=document.getElementById('homeBtn');if(hb)hb.classList.toggle('hidden',state.screen==='home');
+  const app=document.getElementById('app');
+  if(!authReady){
+    app.innerHTML=`<section class="page authpage"><div class="authcard card"><div class="authicon">⏳</div><h1>Loading Kanak's Practice Zone…</h1><p>Connecting secure cloud sync.</p></div></section>`;
+  }else if(!currentUser){
+    app.innerHTML=loginView();
+  }else{
+    app.innerHTML=views[state.screen]();
+  }
+  const hb=document.getElementById('homeBtn');if(hb)hb.classList.toggle('hidden',!currentUser||state.screen==='home');
 }
 function home(){
   const s=stats(), rec=recommendations(s), completed=s.papers.length, total=s.papers.reduce((n,p)=>n+p.total,0),correct=s.papers.reduce((n,p)=>n+p.score,0),acc=total?Math.round(correct/total*100):0;
@@ -287,18 +411,39 @@ function home(){
 function subject(){const x=SUBJECTS[state.subject];return `<section class="page"><div class="head"><div><h1>${x.icon} ${x.name} Practice</h1><p>Choose a topic, then Easy, Medium or Hard. Every paper has 20 questions.</p></div></div><div class="topicgrid">${x.topics.map(t=>`<div class="card topic"><h3>${esc(t[1])}</h3><p>${esc(t[2])}</p><div class="levels">${Object.entries(LEVELS).map(([id,l])=>`<button class="level ${l.color}" data-topic="${t[0]}" data-level="${id}">${l.emoji} ${l.name}</button>`).join('')}</div></div>`).join('')}</div><div class="actions"><button class="secondary" id="back">← Home</button><button class="secondary" id="dash2">📊 Progress</button></div></section>`}
 function paperView(){const q=state.paper[state.index],l=state.mode==='smart'?LEVELS[q.level]:LEVELS[state.level],elapsed=Math.floor((Date.now()-state.started)/1000),pct=Math.round((state.index/20)*100);return `<section class="page paper"><div class="paperhead"><div><span class="badge">${SUBJECTS[q.subject].icon} ${SUBJECTS[q.subject].name} • ${esc(TOPIC_NAMES[`${q.subject}:${q.topic}`])} • ${l.emoji} ${l.name}</span><h1>Practice Paper</h1>${state.mode==='smart'?`<p class="smartline">🤖 Smart Practice: ${esc(state.paperLabel)}</p>`:''}</div><div class="timer" id="timer">${formatTime(state.secondsLeft)}</div><div class="count">${state.index+1}/20</div></div><div class="progress"><div style="width:${pct}%"></div></div><div class="q"><h2>${esc(q.prompt)}</h2><div class="options">${q.options.map((o,i)=>`<button class="option ${state.selected===i?'selected':''}" data-answer="${i}">${esc(o)}</button>`).join('')}</div>${state.locked?`<div class="feedback ${state.selected===q.answer?'good':'bad'}">${state.selected===q.answer?'✅ Correct! Great job!':'💡 Not quite.'} ${esc(q.explanation)} ${state.selected!==q.answer?`<br><b>Correct answer: ${esc(q.options[q.answer])}</b>`:''}</div>`:''}</div><div class="actions"><button class="secondary" id="exit">Exit Paper</button><button class="primary" id="next">${state.locked?(state.index===19?'Finish 🎉':'Next →'):'Check Answer ✓'}</button></div></section>`}
 function result(){const p=Math.round(state.score/20*100);return `<section class="page result"><div class="big">${p>=90?'🏆':p>=75?'🌟':p>=50?'💪':'🌱'}</div><h1>${p>=90?'Fantastic work!':p>=75?'Great job!':'Keep practising!'}</h1><p>${state.mode==='smart'?'Smart Practice is complete. The dashboard has updated her recommendations.':'You completed the practice paper.'}</p><div class="resultgrid"><div class="card stat"><div class="num">${state.score}/20</div><small>Score</small></div><div class="card stat"><div class="num">${p}%</div><small>Accuracy</small></div><div class="card stat"><div class="num">${formatTime(Math.floor((Date.now()-state.started)/1000))}</div><small>Time</small></div></div><div class="actions"><button class="secondary" id="again">↻ Try Again</button><button class="primary" id="dash3">📊 View Progress</button></div></section>`}
-function dashboard(){const s=stats(),total=s.papers.reduce((a,p)=>a+p.total,0),correct=s.papers.reduce((a,p)=>a+p.score,0),rec=recommendations(s);return `<section class="page"><div class="head"><div><h1>📊 Kanak's Progress</h1><p>Progress is saved on this browser. No account or paid service is required.</p></div></div><div class="resultgrid"><div class="card stat"><div class="num">${s.papers.length}</div><small>Papers completed</small></div><div class="card stat"><div class="num">${correct}</div><small>Correct answers</small></div><div class="card stat"><div class="num">${total?Math.round(correct/total*100):0}%</div><small>Overall accuracy</small></div></div><div class="card recommend"><h2>🤖 Recommended next</h2><p>The app uses her saved results to find topics that need more practice. Recommendations improve as more papers are completed.</p><div class="recgrid">${rec.map(r=>`<div class="recitem"><div><b>${SUBJECTS[r.subject].icon} ${esc(TOPIC_NAMES[`${r.subject}:${r.topic}`])}</b><small>${esc(SUBJECTS[r.subject].name)} • ${esc(r.reason)}</small></div><button class="primary small" data-recommend-subject="${r.subject}" data-recommend-topic="${r.topic}" data-recommend-level="${r.level}">Practise</button></div>`).join('')}</div><button class="smartbtn" id="smartStart2">🤖 Start Smart Practice</button></div><div class="card dashcard"><h2>Subject performance</h2>${Object.entries(SUBJECTS).map(([id,x])=>{const rows=s.papers.filter(p=>p.subject===id),a=rows.reduce((n,p)=>n+p.total,0),c=rows.reduce((n,p)=>n+p.score,0),p=a?Math.round(c/a*100):0;return `<div class="barrow"><b>${x.icon} ${x.name}</b><div class="bar"><span style="width:${p}%"></span></div><strong>${p}%</strong></div>`}).join('')}</div><div class="card dashcard"><h2>Topic performance</h2>${topicMetrics(s).map(r=>`<div class="topicrow"><span>${SUBJECTS[r.subject].icon} ${esc(r.name)}</span><div class="bar"><span style="width:${r.accuracy}%"></span></div><strong>${r.questions?r.accuracy+'%':'—'}</strong><small>${r.questions} questions</small></div>`).join('')}</div><div class="card dashcard"><h2>Difficulty performance</h2>${Object.entries(LEVELS).map(([id,l])=>`<div class="barrow"><b>${l.emoji} ${l.name}</b><div class="bar"><span style="width:${levelAccuracy(s,id)}%"></span></div><strong>${levelAccuracy(s,id)}%</strong></div>`).join('')}</div><div class="card dashcard"><h2>Recent papers</h2>${s.papers.length?[...s.papers].reverse().slice(0,10).map(p=>`<div class="history"><span>${SUBJECTS[p.subject].icon} ${esc(TOPIC_NAMES[`${p.subject}:${p.topic}`])}</span><span>${esc(p.level)}</span><strong>${p.score}/20</strong><small>${new Date(p.date).toLocaleDateString()}</small></div>`).join(''):'<div class="empty">No papers yet. Start practising to build the dashboard.</div>'}</div><div class="actions"><button class="secondary" id="backhome">← Home</button>${s.papers.length?'<button class="secondary" id="reset">Reset Progress</button>':''}</div></section>`}
+function dashboard(){const s=stats(),total=s.papers.reduce((a,p)=>a+p.total,0),correct=s.papers.reduce((a,p)=>a+p.score,0),rec=recommendations(s);return `<section class="page"><div class="head"><div><h1>📊 Kanak's Progress</h1><p>☁️ Progress is synced to Firebase for the signed-in Google account.</p><div class="accountrow"><span id="cloudStatus">${cloudReady?'☁️ Cloud synced':'Syncing…'}</span><button class="secondary small" id="logout">Sign out</button></div></div></div><div class="resultgrid"><div class="card stat"><div class="num">${s.papers.length}</div><small>Papers completed</small></div><div class="card stat"><div class="num">${correct}</div><small>Correct answers</small></div><div class="card stat"><div class="num">${total?Math.round(correct/total*100):0}%</div><small>Overall accuracy</small></div></div><div class="card recommend"><h2>🤖 Recommended next</h2><p>The app uses her saved results to find topics that need more practice. Recommendations improve as more papers are completed.</p><div class="recgrid">${rec.map(r=>`<div class="recitem"><div><b>${SUBJECTS[r.subject].icon} ${esc(TOPIC_NAMES[`${r.subject}:${r.topic}`])}</b><small>${esc(SUBJECTS[r.subject].name)} • ${esc(r.reason)}</small></div><button class="primary small" data-recommend-subject="${r.subject}" data-recommend-topic="${r.topic}" data-recommend-level="${r.level}">Practise</button></div>`).join('')}</div><button class="smartbtn" id="smartStart2">🤖 Start Smart Practice</button></div><div class="card dashcard"><h2>Subject performance</h2>${Object.entries(SUBJECTS).map(([id,x])=>{const rows=s.papers.filter(p=>p.subject===id),a=rows.reduce((n,p)=>n+p.total,0),c=rows.reduce((n,p)=>n+p.score,0),p=a?Math.round(c/a*100):0;return `<div class="barrow"><b>${x.icon} ${x.name}</b><div class="bar"><span style="width:${p}%"></span></div><strong>${p}%</strong></div>`}).join('')}</div><div class="card dashcard"><h2>Topic performance</h2>${topicMetrics(s).map(r=>`<div class="topicrow"><span>${SUBJECTS[r.subject].icon} ${esc(r.name)}</span><div class="bar"><span style="width:${r.accuracy}%"></span></div><strong>${r.questions?r.accuracy+'%':'—'}</strong><small>${r.questions} questions</small></div>`).join('')}</div><div class="card dashcard"><h2>Difficulty performance</h2>${Object.entries(LEVELS).map(([id,l])=>`<div class="barrow"><b>${l.emoji} ${l.name}</b><div class="bar"><span style="width:${levelAccuracy(s,id)}%"></span></div><strong>${levelAccuracy(s,id)}%</strong></div>`).join('')}</div><div class="card dashcard"><h2>Recent papers</h2>${s.papers.length?[...s.papers].reverse().slice(0,10).map(p=>`<div class="history"><span>${SUBJECTS[p.subject].icon} ${esc(TOPIC_NAMES[`${p.subject}:${p.topic}`])}</span><span>${esc(p.level)}</span><strong>${p.score}/20</strong><small>${new Date(p.date).toLocaleDateString()}</small></div>`).join(''):'<div class="empty">No papers yet. Start practising to build the dashboard.</div>'}</div><div class="actions"><button class="secondary" id="backhome">← Home</button>${s.papers.length?'<button class="secondary" id="reset">Reset Progress</button>':''}</div></section>`}
 
 const views={home,subject,paper:paperView,result,dashboard};
 function startPaper(subject,topic,level){state={...state,screen:'paper',subject,topic,level,mode:'normal',paper:makePaper(subject,topic,level),index:0,selected:null,locked:false,score:0,secondsLeft:LEVELS[level].minutes*60,started:Date.now(),answers:[],paperLabel:''};startTimer();render();}
 function startSmart(){clearInterval(state.timer);const s=stats(),sp=makeSmartPaper(s);state={...state,screen:'paper',subject:sp.questions[0].subject,topic:sp.questions[0].topic,level:null,mode:'smart',paper:sp.questions,index:0,selected:null,locked:false,score:0,secondsLeft:12*60,started:Date.now(),answers:[],paperLabel:sp.label};startTimer();render();}
 function startTimer(){clearInterval(state.timer);state.timer=setInterval(()=>{state.secondsLeft--;const el=document.getElementById('timer');if(el)el.textContent=formatTime(state.secondsLeft);if(state.secondsLeft<=0){clearInterval(state.timer);state.timer=null;finish(true)}},1000);}
-function finish(timeUp=false){clearInterval(state.timer);state.timer=null;const s=stats();const now=new Date().toISOString();const topicAgg={};for(const a of state.answers){const k=topicKey(a.subject,a.topic);topicAgg[k]??={correct:0,total:0};topicAgg[k].total++;if(a.correct)topicAgg[k].correct++;}
-  Object.entries(topicAgg).forEach(([k,v])=>{s.topicStats[k]??={correct:0,questions:0};s.topicStats[k].correct+=v.correct;s.topicStats[k].questions+=v.total;});
-  state.answers.forEach(a=>{s.questionStats[a.id]??={correct:0,attempts:0};s.questionStats[a.id].attempts++;if(a.correct)s.questionStats[a.id].correct++;});
-  s.papers.push({date:now,subject:state.mode==='smart'?'mixed':state.subject,topic:state.mode==='smart'?'smart':state.topic,level:state.mode==='smart'?'smart':state.level,score:state.score,total:20,time:Math.round((Date.now()-state.started)/1000),timeUp,answers:state.answers.map(a=>({id:a.id,correct:a.correct}))});s.papers=s.papers.slice(-100);saveStats(s);state.screen='result';render();}
+function finish(timeUp=false){
+  clearInterval(state.timer);state.timer=null;
+  const s=stats();
+  const now=new Date().toISOString();
+  const paper={
+    id:`${currentUser?currentUser.uid:'local'}-${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
+    date:now,
+    subject:state.mode==='smart'?'mixed':state.subject,
+    topic:state.mode==='smart'?'smart':state.topic,
+    level:state.mode==='smart'?'smart':state.level,
+    score:state.score,total:20,
+    time:Math.round((Date.now()-state.started)/1000),
+    timeUp,
+    answers:state.answers.map(a=>({id:a.id,subject:a.subject,topic:a.topic,level:a.level,correct:a.correct}))
+  };
+  const updated=rebuildStatsFromPapers([...(s.papers||[]),paper]);
+  saveStats(updated);
+  state.screen='result';
+  render();
+}
 
 document.addEventListener('click',e=>{
+  if(e.target.closest('#googleLogin')){loginWithGoogle();return;}
+  if(e.target.closest('#logout')){
+    if(confirm('Sign out of Kanak Practice Zone?')){clearInterval(state.timer);signOut(auth);}
+    return;
+  }
   let b=e.target.closest('[data-subject]');if(b){state.subject=b.dataset.subject;state.screen='subject';render();return;}
   b=e.target.closest('[data-topic][data-level]');if(b){startPaper(state.subject,b.dataset.topic,b.dataset.level);return;}
   b=e.target.closest('[data-recommend-subject]');if(b){startPaper(b.dataset.recommendSubject,b.dataset.recommendTopic,b.dataset.recommendLevel);return;}
@@ -315,9 +460,19 @@ document.addEventListener('click',e=>{
   }
   if(e.target.closest('#exit')){if(confirm('Exit this paper? Your current paper will not be saved.')){clearInterval(state.timer);state.screen='subject';render()}return;}
   if(e.target.closest('#again')){state.mode==='smart'?startSmart():startPaper(state.subject,state.topic,state.level);return;}
-  if(e.target.closest('#reset')){if(confirm('Reset all saved progress on this browser?')){localStorage.removeItem(STORAGE_KEY);render()}return;}
+  if(e.target.closest('#reset')){if(confirm('Reset all of Kanak\'s cloud-saved progress? This cannot be undone.')){const blank=emptyStats();saveStats(blank);render()}return;}
 });
 
 // Expose a small diagnostic object for browser-console testing.
-window.KanakPractice={bankSize:BANK.length,bankIndex:BANK_INDEX,storageKey:STORAGE_KEY,version:BANK_VERSION};
-render();
+window.KanakPractice={bankSize:BANK.length,bankIndex:BANK_INDEX,storageKey:STORAGE_KEY,version:BANK_VERSION,firebaseProject:firebaseConfig.projectId};
+
+onAuthStateChanged(auth,async user=>{
+  currentUser=user;
+  authReady=true;
+  cloudReady=false;
+  render();
+  if(user){
+    await syncCloud();
+    render();
+  }
+});
