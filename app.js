@@ -1,13 +1,13 @@
 /* Kanak Sharma Class 3 Practice Zone — V4 Adaptive + V3.1 Question Bank */
 'use strict';
 
-// Firebase Cloud Sync (Google Sign-In + Firestore)
+// Firebase Cloud Sync (Student ID + PIN + Firestore)
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js';
 import {
   getAuth,
-  GoogleAuthProvider,
-  signInWithPopup,
-  signInWithRedirect,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  updateProfile,
   signOut,
   onAuthStateChanged
 } from 'https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js';
@@ -31,7 +31,7 @@ const firebaseConfig = {
 const firebaseApp = initializeApp(firebaseConfig);
 const auth = getAuth(firebaseApp);
 const db = getFirestore(firebaseApp);
-const googleProvider = new GoogleAuthProvider();
+const AUTH_DOMAIN_SUFFIX = '@kanakpracticezone.firebaseapp.com';
 let currentUser = null;
 let authReady = false;
 let cloudReady = false;
@@ -340,22 +340,79 @@ function showCloudStatus(message,error=false){
   const el=document.getElementById('cloudStatus');
   if(el){el.textContent=message;el.classList.toggle('error',error);}
 }
-function loginView(){
-  return `<section class="page authpage"><div class="authcard card"><div class="authicon">☁️📚</div><h1>Kanak Practice Zone</h1><p>Sign in with the Google account you want to use for Kanak's progress.</p><button class="primary googlebtn" id="googleLogin">Continue with Google</button><p class="authnote">Her practice history will stay synced across your phone, tablet and computer.</p><div id="cloudStatus" class="cloudstatus">Secure cloud sync is ready.</div></div></section>`;
+function studentEmail(studentId){
+  return `${studentId.trim().toLowerCase()}${AUTH_DOMAIN_SUFFIX}`;
 }
-async function loginWithGoogle(){
+function cleanStudentId(v){
+  return String(v||'').trim().toUpperCase().replace(/[^A-Z0-9_-]/g,'').slice(0,24);
+}
+function cleanPin(v){return String(v||'').trim();}
+function loginView(){
+  return `<section class="authpage">
+    <div class="authshell">
+      <div class="authstars" aria-hidden="true"><span>⭐</span><span>✨</span><span>🌈</span><span>💫</span></div>
+      <div class="authcard card">
+        <div class="authbadge">🎒 KANAK'S LEARNING WORLD</div>
+        <div class="authheroemoji">🧑‍🎓💛</div>
+        <h1>Hey Kanak! 👋</h1>
+        <p class="authlead">Welcome to the little learning world Dad built specially for you.</p>
+        <div class="dadnote"><div class="dadnoteicon">❤️</div><div><b>A message from Dad</b><p>“Keep learning, keep trying and keep smiling. You don't have to be perfect — just get a little better every day!”</p><small>— Dad</small></div></div>
+        <div class="loginform">
+          <label for="studentId">🌟 Your Student ID</label>
+          <input id="studentId" class="authinput" maxlength="24" autocomplete="username" placeholder="e.g. KANAK001" />
+          <label for="studentPin">🔐 Your secret PIN</label>
+          <input id="studentPin" class="authinput" type="password" inputmode="numeric" maxlength="32" autocomplete="current-password" placeholder="Enter your PIN" />
+          <div class="loginhint">Your ID + PIN keeps your progress safe and lets you continue on another device. ☁️</div>
+          <button class="primary authgo" id="studentLogin">🚀 Let's Learn!</button>
+          <button class="secondary authsetup" id="studentCreate">✨ First time? Create my learning account</button>
+        </div>
+        <div id="cloudStatus" class="cloudstatus">☁️ Your progress will be saved securely.</div>
+      </div>
+      <div class="authfooter">Made with ❤️ by Dad • For Kanak • Class 3</div>
+    </div>
+  </section>`;
+}
+function authValues(){
+  const id=cleanStudentId(document.getElementById('studentId')?.value);
+  const pin=cleanPin(document.getElementById('studentPin')?.value);
+  if(!id||id.length<4){alert('Please enter your Student ID 😊');return null;}
+  if(pin.length<6){alert('Your PIN should be at least 6 characters. 🔐');return null;}
+  return {id,pin,email:studentEmail(id)};
+}
+async function loginWithStudent(){
+  const v=authValues();if(!v)return;
   try{
-    showCloudStatus('Opening Google sign-in…');
-    const mobile=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-    if(mobile){
-      await signInWithRedirect(auth,googleProvider);
-    }else{
-      await signInWithPopup(auth,googleProvider);
-    }
+    showCloudStatus('🔄 Signing you in…');
+    await signInWithEmailAndPassword(auth,v.email,v.pin);
   }catch(err){
-    console.error('Google sign-in failed:',err);
-    alert(`Google sign-in could not be completed.\n\n${err.code||err.message}`);
-    showCloudStatus('Sign-in cancelled or failed.',true);
+    console.error('Student sign-in failed:',err);
+    const code=err.code||'';
+    if(code==='auth/user-not-found'||code==='auth/invalid-credential'){
+      showCloudStatus('That Student ID or PIN is not correct. Try again, or use “Create my learning account” if this is your first visit.',true);
+    }else if(code==='auth/invalid-email'){
+      showCloudStatus('Please check the Student ID and try again.',true);
+    }else{
+      showCloudStatus('We could not sign you in right now. Your local progress is still safe on this device.',true);
+    }
+  }
+}
+async function createStudentAccount(){
+  const v=authValues();if(!v)return;
+  if(!confirm(`Create a new learning account for Student ID ${v.id}?\n\nUse this same ID and PIN whenever Kanak returns.`))return;
+  try{
+    showCloudStatus('✨ Creating Kanak’s learning account…');
+    const cred=await createUserWithEmailAndPassword(auth,v.email,v.pin);
+    await updateProfile(cred.user,{displayName:'Kanak Sharma'});
+    showCloudStatus('🎉 Account created! Loading your learning world…');
+  }catch(err){
+    console.error('Student account creation failed:',err);
+    if(err.code==='auth/email-already-in-use'){
+      showCloudStatus('This Student ID already exists. Please use “Let’s Learn!” to sign in.',true);
+    }else if(err.code==='auth/weak-password'){
+      showCloudStatus('Please choose a stronger PIN with at least 6 characters.',true);
+    }else{
+      showCloudStatus('We could not create the account right now. Please try again.',true);
+    }
   }
 }
 function topicKey(s,t){return `${s}:${t}`;}
@@ -402,16 +459,18 @@ function render(){
 }
 function home(){
   const s=stats(), rec=recommendations(s), completed=s.papers.length, total=s.papers.reduce((n,p)=>n+p.total,0),correct=s.papers.reduce((n,p)=>n+p.score,0),acc=total?Math.round(correct/total*100):0;
-  return `<section class="hero"><div class="emoji">🎒✨</div><h1>Ready to Learn?</h1><p>Pick a subject and start Kanak's Class 3 practice.</p></section>
+  return `<section class="hero"><div class="herohello">🌈✨ Welcome back, Kanak! ✨🌈</div><div class="emoji">🎒📚💛</div><h1>Ready for your next adventure?</h1><p>Dad built this learning zone just for you. Pick a subject, have fun and show your super-brain what it can do!</p></section>
   <div class="grid">${Object.entries(SUBJECTS).map(([id,x])=>`<button class="card subject" data-subject="${id}"><div class="icon">${x.icon}</div><h2>${x.name}</h2><p>${x.desc}</p></button>`).join('')}</div>
-  <div class="smart card"><div><span class="smarttag">🤖 V4 SMART PRACTICE</span><h2>What should Kanak practise next?</h2><p>${rec[0]?`Based on her progress, the app recommends <b>${esc(TOPIC_NAMES[`${rec[0].subject}:${rec[0].topic}`])}</b> (${esc(rec[0].reason)}).`: 'Complete a paper and the dashboard will start identifying weak areas automatically.'}</p></div><button class="primary" id="smartStart">Start Smart Practice →</button></div>
+  <div class="dadmessage card"><div class="dadmessageemoji">🧡</div><div><span class="smarttag">A LITTLE NOTE FROM DAD</span><h2>“I built this for you, Kanak.”</h2><p>Every question is a chance to learn something new. Try your best, celebrate your wins and don't worry about mistakes. <b>Dad is cheering for you! 🥰</b></p></div></div>
+  <div class="smart card"><div><span class="smarttag">🤖 SMART PRACTICE</span><h2>What should Kanak practise next?</h2><p>${rec[0]?`Based on her progress, the app recommends <b>${esc(TOPIC_NAMES[`${rec[0].subject}:${rec[0].topic}`])}</b> (${esc(rec[0].reason)}).`: 'Complete a paper and the dashboard will start identifying weak areas automatically.'}</p></div><button class="primary" id="smartStart">Start Smart Practice →</button></div>
   <button class="dashbtn secondary" id="dash">📊 Parent Progress Dashboard</button>
+  <div class="achievementstrip"><span>🏆 <b>${completed}</b> papers completed</span><span>🧠 <b>${correct}</b> correct answers</span><span>🎯 <b>${acc}%</b> overall accuracy</span><span>☁️ Progress saved</span></div>
   <div class="strip"><span><b>${completed}</b> practice papers completed</span><span>📝 <b>20</b> questions · 🎯 <b>3</b> levels · ⏱️ timed papers · 📚 <b>1,440</b> original questions</span><span>Overall accuracy: <b>${acc}%</b></span></div>`;
 }
 function subject(){const x=SUBJECTS[state.subject];return `<section class="page"><div class="head"><div><h1>${x.icon} ${x.name} Practice</h1><p>Choose a topic, then Easy, Medium or Hard. Every paper has 20 questions.</p></div></div><div class="topicgrid">${x.topics.map(t=>`<div class="card topic"><h3>${esc(t[1])}</h3><p>${esc(t[2])}</p><div class="levels">${Object.entries(LEVELS).map(([id,l])=>`<button class="level ${l.color}" data-topic="${t[0]}" data-level="${id}">${l.emoji} ${l.name}</button>`).join('')}</div></div>`).join('')}</div><div class="actions"><button class="secondary" id="back">← Home</button><button class="secondary" id="dash2">📊 Progress</button></div></section>`}
 function paperView(){const q=state.paper[state.index],l=state.mode==='smart'?LEVELS[q.level]:LEVELS[state.level],elapsed=Math.floor((Date.now()-state.started)/1000),pct=Math.round((state.index/20)*100);return `<section class="page paper"><div class="paperhead"><div><span class="badge">${SUBJECTS[q.subject].icon} ${SUBJECTS[q.subject].name} • ${esc(TOPIC_NAMES[`${q.subject}:${q.topic}`])} • ${l.emoji} ${l.name}</span><h1>Practice Paper</h1>${state.mode==='smart'?`<p class="smartline">🤖 Smart Practice: ${esc(state.paperLabel)}</p>`:''}</div><div class="timer" id="timer">${formatTime(state.secondsLeft)}</div><div class="count">${state.index+1}/20</div></div><div class="progress"><div style="width:${pct}%"></div></div><div class="q"><h2>${esc(q.prompt)}</h2><div class="options">${q.options.map((o,i)=>`<button class="option ${state.selected===i?'selected':''}" data-answer="${i}">${esc(o)}</button>`).join('')}</div>${state.locked?`<div class="feedback ${state.selected===q.answer?'good':'bad'}">${state.selected===q.answer?'✅ Correct! Great job!':'💡 Not quite.'} ${esc(q.explanation)} ${state.selected!==q.answer?`<br><b>Correct answer: ${esc(q.options[q.answer])}</b>`:''}</div>`:''}</div><div class="actions"><button class="secondary" id="exit">Exit Paper</button><button class="primary" id="next">${state.locked?(state.index===19?'Finish 🎉':'Next →'):'Check Answer ✓'}</button></div></section>`}
 function result(){const p=Math.round(state.score/20*100);return `<section class="page result"><div class="big">${p>=90?'🏆':p>=75?'🌟':p>=50?'💪':'🌱'}</div><h1>${p>=90?'Fantastic work!':p>=75?'Great job!':'Keep practising!'}</h1><p>${state.mode==='smart'?'Smart Practice is complete. The dashboard has updated her recommendations.':'You completed the practice paper.'}</p><div class="resultgrid"><div class="card stat"><div class="num">${state.score}/20</div><small>Score</small></div><div class="card stat"><div class="num">${p}%</div><small>Accuracy</small></div><div class="card stat"><div class="num">${formatTime(Math.floor((Date.now()-state.started)/1000))}</div><small>Time</small></div></div><div class="actions"><button class="secondary" id="again">↻ Try Again</button><button class="primary" id="dash3">📊 View Progress</button></div></section>`}
-function dashboard(){const s=stats(),total=s.papers.reduce((a,p)=>a+p.total,0),correct=s.papers.reduce((a,p)=>a+p.score,0),rec=recommendations(s);return `<section class="page"><div class="head"><div><h1>📊 Kanak's Progress</h1><p>☁️ Progress is synced to Firebase for the signed-in Google account.</p><div class="accountrow"><span id="cloudStatus">${cloudReady?'☁️ Cloud synced':'Syncing…'}</span><button class="secondary small" id="logout">Sign out</button></div></div></div><div class="resultgrid"><div class="card stat"><div class="num">${s.papers.length}</div><small>Papers completed</small></div><div class="card stat"><div class="num">${correct}</div><small>Correct answers</small></div><div class="card stat"><div class="num">${total?Math.round(correct/total*100):0}%</div><small>Overall accuracy</small></div></div><div class="card recommend"><h2>🤖 Recommended next</h2><p>The app uses her saved results to find topics that need more practice. Recommendations improve as more papers are completed.</p><div class="recgrid">${rec.map(r=>`<div class="recitem"><div><b>${SUBJECTS[r.subject].icon} ${esc(TOPIC_NAMES[`${r.subject}:${r.topic}`])}</b><small>${esc(SUBJECTS[r.subject].name)} • ${esc(r.reason)}</small></div><button class="primary small" data-recommend-subject="${r.subject}" data-recommend-topic="${r.topic}" data-recommend-level="${r.level}">Practise</button></div>`).join('')}</div><button class="smartbtn" id="smartStart2">🤖 Start Smart Practice</button></div><div class="card dashcard"><h2>Subject performance</h2>${Object.entries(SUBJECTS).map(([id,x])=>{const rows=s.papers.filter(p=>p.subject===id),a=rows.reduce((n,p)=>n+p.total,0),c=rows.reduce((n,p)=>n+p.score,0),p=a?Math.round(c/a*100):0;return `<div class="barrow"><b>${x.icon} ${x.name}</b><div class="bar"><span style="width:${p}%"></span></div><strong>${p}%</strong></div>`}).join('')}</div><div class="card dashcard"><h2>Topic performance</h2>${topicMetrics(s).map(r=>`<div class="topicrow"><span>${SUBJECTS[r.subject].icon} ${esc(r.name)}</span><div class="bar"><span style="width:${r.accuracy}%"></span></div><strong>${r.questions?r.accuracy+'%':'—'}</strong><small>${r.questions} questions</small></div>`).join('')}</div><div class="card dashcard"><h2>Difficulty performance</h2>${Object.entries(LEVELS).map(([id,l])=>`<div class="barrow"><b>${l.emoji} ${l.name}</b><div class="bar"><span style="width:${levelAccuracy(s,id)}%"></span></div><strong>${levelAccuracy(s,id)}%</strong></div>`).join('')}</div><div class="card dashcard"><h2>Recent papers</h2>${s.papers.length?[...s.papers].reverse().slice(0,10).map(p=>`<div class="history"><span>${SUBJECTS[p.subject].icon} ${esc(TOPIC_NAMES[`${p.subject}:${p.topic}`])}</span><span>${esc(p.level)}</span><strong>${p.score}/20</strong><small>${new Date(p.date).toLocaleDateString()}</small></div>`).join(''):'<div class="empty">No papers yet. Start practising to build the dashboard.</div>'}</div><div class="actions"><button class="secondary" id="backhome">← Home</button>${s.papers.length?'<button class="secondary" id="reset">Reset Progress</button>':''}</div></section>`}
+function dashboard(){const s=stats(),total=s.papers.reduce((a,p)=>a+p.total,0),correct=s.papers.reduce((a,p)=>a+p.score,0),rec=recommendations(s);return `<section class="page"><div class="head"><div><h1>📊 Kanak's Progress</h1><p>☁️ Progress is securely synced to Kanak's Firebase learning account.</p><div class="accountrow"><span id="cloudStatus">${cloudReady?'☁️ Cloud synced':'Syncing…'}</span><button class="secondary small" id="logout">🚪 Sign out</button></div></div></div><div class="resultgrid"><div class="card stat"><div class="num">${s.papers.length}</div><small>Papers completed</small></div><div class="card stat"><div class="num">${correct}</div><small>Correct answers</small></div><div class="card stat"><div class="num">${total?Math.round(correct/total*100):0}%</div><small>Overall accuracy</small></div></div><div class="card recommend"><h2>🤖 Recommended next</h2><p>The app uses her saved results to find topics that need more practice. Recommendations improve as more papers are completed.</p><div class="recgrid">${rec.map(r=>`<div class="recitem"><div><b>${SUBJECTS[r.subject].icon} ${esc(TOPIC_NAMES[`${r.subject}:${r.topic}`])}</b><small>${esc(SUBJECTS[r.subject].name)} • ${esc(r.reason)}</small></div><button class="primary small" data-recommend-subject="${r.subject}" data-recommend-topic="${r.topic}" data-recommend-level="${r.level}">Practise</button></div>`).join('')}</div><button class="smartbtn" id="smartStart2">🤖 Start Smart Practice</button></div><div class="card dashcard"><h2>Subject performance</h2>${Object.entries(SUBJECTS).map(([id,x])=>{const rows=s.papers.filter(p=>p.subject===id),a=rows.reduce((n,p)=>n+p.total,0),c=rows.reduce((n,p)=>n+p.score,0),p=a?Math.round(c/a*100):0;return `<div class="barrow"><b>${x.icon} ${x.name}</b><div class="bar"><span style="width:${p}%"></span></div><strong>${p}%</strong></div>`}).join('')}</div><div class="card dashcard"><h2>Topic performance</h2>${topicMetrics(s).map(r=>`<div class="topicrow"><span>${SUBJECTS[r.subject].icon} ${esc(r.name)}</span><div class="bar"><span style="width:${r.accuracy}%"></span></div><strong>${r.questions?r.accuracy+'%':'—'}</strong><small>${r.questions} questions</small></div>`).join('')}</div><div class="card dashcard"><h2>Difficulty performance</h2>${Object.entries(LEVELS).map(([id,l])=>`<div class="barrow"><b>${l.emoji} ${l.name}</b><div class="bar"><span style="width:${levelAccuracy(s,id)}%"></span></div><strong>${levelAccuracy(s,id)}%</strong></div>`).join('')}</div><div class="card dashcard"><h2>Recent papers</h2>${s.papers.length?[...s.papers].reverse().slice(0,10).map(p=>`<div class="history"><span>${SUBJECTS[p.subject].icon} ${esc(TOPIC_NAMES[`${p.subject}:${p.topic}`])}</span><span>${esc(p.level)}</span><strong>${p.score}/20</strong><small>${new Date(p.date).toLocaleDateString()}</small></div>`).join(''):'<div class="empty">No papers yet. Start practising to build the dashboard.</div>'}</div><div class="actions"><button class="secondary" id="backhome">← Home</button>${s.papers.length?'<button class="secondary" id="reset">Reset Progress</button>':''}</div></section>`}
 
 const views={home,subject,paper:paperView,result,dashboard};
 function startPaper(subject,topic,level){state={...state,screen:'paper',subject,topic,level,mode:'normal',paper:makePaper(subject,topic,level),index:0,selected:null,locked:false,score:0,secondsLeft:LEVELS[level].minutes*60,started:Date.now(),answers:[],paperLabel:''};startTimer();render();}
@@ -439,7 +498,8 @@ function finish(timeUp=false){
 }
 
 document.addEventListener('click',e=>{
-  if(e.target.closest('#googleLogin')){loginWithGoogle();return;}
+  if(e.target.closest('#studentLogin')){loginWithStudent();return;}
+  if(e.target.closest('#studentCreate')){createStudentAccount();return;}
   if(e.target.closest('#logout')){
     if(confirm('Sign out of Kanak Practice Zone?')){clearInterval(state.timer);signOut(auth);}
     return;

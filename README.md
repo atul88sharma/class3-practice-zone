@@ -1,33 +1,44 @@
-# Kanak Sharma Class 3 Practice Zone — V5 Firebase Cloud Sync
+# Kanak Sharma Class 3 Practice Zone — V6
 
-This version keeps the V4 adaptive practice engine and 1,440-question bank, and adds Google Sign-In + Firebase Cloud Firestore sync.
+A free Class 3 learning web app for Kanak covering English, Maths, Hindi and EVS. V6 keeps the V4 adaptive question engine and Firebase cloud progress, while replacing Google login with a simple Student ID + PIN experience.
 
-## Features
-- Maths, English, Hindi and EVS
-- 1,440 original Class 3 practice questions
-- Easy / Medium / Hard levels
-- 20-question timed papers
-- Smart Practice and adaptive recommendations
+## V6 highlights
+- Student ID + PIN login — no Google account required
+- Firebase Authentication + Firestore cloud progress
+- Local progress fallback if cloud sync is temporarily unavailable
+- 1,440-question bank: 20 questions per topic/level
+- Easy / Medium / Hard timed papers
+- Smart Practice that recommends weaker topics
 - Parent Progress Dashboard
-- Google Sign-In
-- Cloud-synced history across devices
-- Local browser copy retained as a fallback
+- A personalized welcome and Dad's message for Kanak 💛
 
 ## Firebase setup
-1. Firebase project: `kanakpracticezone`
-2. Authentication: Google provider enabled
-3. Firestore: `(default)` database
-4. Firestore rules should allow each signed-in user to access only `/users/{their-uid}` and its subcollections.
-5. Add the GitHub Pages hostname to Firebase Authentication → Settings → Authorized domains.
+1. In Firebase Console → Authentication → Sign-in method, enable **Email/Password**.
+2. Keep the existing Firebase web app configuration in `app.js`.
+3. In Firestore, create a database if you have not already done so.
+4. Use these Firestore security rules:
 
-## GitHub Pages deployment
-Keep these four files together at the repository root:
-- `index.html`
-- `style.css`
-- `app.js`
-- `README.md`
+```text
+ rules_version = '2';
+ service cloud.firestore {
+   match /databases/{database}/documents {
+     match /users/{userId} {
+       allow read, write: if request.auth != null && request.auth.uid == userId;
+     }
+   }
+ }
+```
 
-After replacing the files, commit to `main` and hard-refresh the site (`Cmd + Shift + R` on Mac).
+5. Upload `index.html`, `style.css` and `app.js` to GitHub Pages.
+
+## How Kanak signs in
+- Student ID: for example `KANAK001`
+- PIN: a 6+ character secret chosen by Dad
+
+The app internally maps the Student ID to a Firebase email-style credential. Kanak only sees the Student ID + PIN; she never needs an email address or Google account.
+
+## First use
+Click **First time? Create my learning account**, enter the Student ID and PIN, and the Firebase account is created. On future visits use **Let's Learn!**.
 
 ## Important
-The Firebase web configuration in `app.js` is a public web-app configuration, not a service-account private key. Never put Firebase service-account credentials or private keys in this repository.
+The Student ID is not a secret. The PIN is the credential. Do not put a real personal email address or password into the app source code.

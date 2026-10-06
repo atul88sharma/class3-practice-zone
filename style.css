@@ -13,3 +13,22 @@
 .cloudstatus.error{color:#b42318}
 .accountrow{display:flex;align-items:center;gap:12px;justify-content:flex-end;margin-top:10px;flex-wrap:wrap}
 .accountrow #cloudStatus{font-size:.9rem;opacity:.8}
+
+/* V6 — warm, playful login + Dad-built experience */
+.authpage{position:relative;min-height:calc(100vh - 150px);padding:18px 0 35px;overflow:hidden;background:radial-gradient(circle at 10% 15%,rgba(255,214,102,.32),transparent 24%),radial-gradient(circle at 90% 20%,rgba(135,206,250,.30),transparent 26%)}
+.authshell{width:min(650px,100%);margin:auto;position:relative}
+.authstars{position:absolute;inset:0;pointer-events:none;font-size:24px}
+.authstars span{position:absolute;animation:floatStar 3.5s ease-in-out infinite}
+.authstars span:nth-child(1){left:4%;top:12%}.authstars span:nth-child(2){right:5%;top:23%;animation-delay:.7s}.authstars span:nth-child(3){left:1%;bottom:20%;animation-delay:1.2s}.authstars span:nth-child(4){right:2%;bottom:14%;animation-delay:1.8s}
+@keyframes floatStar{0%,100%{transform:translateY(0) rotate(0deg);opacity:.65}50%{transform:translateY(-12px) rotate(10deg);opacity:1}}
+.authcard{position:relative;z-index:2;max-width:none;text-align:center;padding:34px 32px 28px;border:2px solid rgba(255,255,255,.9);background:linear-gradient(145deg,rgba(255,255,255,.98),rgba(250,248,255,.98));box-shadow:0 22px 60px rgba(72,61,150,.16)}
+.authbadge{display:inline-block;background:#fff2c8;color:#795b00;border:1px solid #f0d77e;border-radius:999px;padding:8px 14px;font-size:12px;font-weight:900;letter-spacing:.5px}
+.authheroemoji{font-size:54px;margin:15px 0 4px;filter:drop-shadow(0 8px 8px rgba(81,70,201,.12))}
+.authcard h1{font-size:38px;margin:4px 0 8px}.authlead{color:var(--muted);font-size:17px;line-height:1.5;margin:0 auto 18px;max-width:510px}
+.dadnote{display:flex;gap:13px;text-align:left;background:linear-gradient(135deg,#fff8e8,#fff0f4);border:1px solid #f3d9c9;border-radius:18px;padding:15px 17px;margin:18px 0 22px}.dadnoteicon{font-size:25px}.dadnote b{color:#8a4760}.dadnote p{margin:4px 0;color:#6e6370;line-height:1.5;font-size:14px}.dadnote small{color:#8d7782;font-weight:800}
+.loginform{text-align:left}.loginform label{display:block;font-size:13px;font-weight:850;margin:12px 0 7px}.authinput{width:100%;padding:14px 15px;border:2px solid #dfe4ef;border-radius:14px;background:#fff;color:var(--ink);font-size:16px;outline:none;transition:.18s}.authinput:focus{border-color:#8d85e8;box-shadow:0 0 0 4px rgba(81,70,201,.10)}
+.loginhint{font-size:12px;color:var(--muted);line-height:1.45;margin:10px 2px 15px}.authgo,.authsetup{width:100%;margin-top:8px}.authgo{font-size:16px;padding:14px 20px}.authsetup{font-size:13px;background:#fffdf8}.cloudstatus{min-height:20px;margin-top:15px}.authfooter{text-align:center;color:#8b94aa;font-size:12px;margin-top:14px}
+.herohello{display:inline-block;background:#fff;border:1px solid #e8e3ff;color:#5a50c8;border-radius:999px;padding:8px 14px;font-weight:850;font-size:13px;box-shadow:0 5px 16px rgba(81,70,201,.08)}
+.dadmessage{display:flex;gap:16px;align-items:flex-start;margin:20px 0;padding:22px 24px;background:linear-gradient(135deg,#fff7df,#fff0f5);border:1px solid #f1dccf}.dadmessageemoji{font-size:34px}.dadmessage h2{margin:7px 0 6px;font-size:22px}.dadmessage p{margin:0;color:#6f6671;line-height:1.55}
+.achievementstrip{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:18px 0}.achievementstrip span{background:rgba(255,255,255,.9);border:1px solid var(--line);border-radius:15px;padding:14px 10px;text-align:center;color:var(--muted);font-size:12px}.achievementstrip b{display:block;color:var(--ink);font-size:20px;margin-bottom:2px}
+@media(max-width:600px){.authpage{padding-top:6px}.authcard{padding:27px 19px 22px}.authcard h1{font-size:31px}.authlead{font-size:15px}.authheroemoji{font-size:46px}.dadnote{padding:13px}.dadmessage{padding:18px}.achievementstrip{grid-template-columns:1fr 1fr}.achievementstrip span{padding:12px 7px}.authstars{display:none}}
